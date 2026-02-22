@@ -103,6 +103,10 @@
             <div class="form-group">
                 <label class="form-label">Duration</label>
                 <select class="form-select" id="duration">
+                    <option value="20">20 seconds</option>
+                    <option value="30">30 seconds</option>
+                    <option value="40">40 seconds</option>
+                    <option value="50">50 seconds</option>
                     <option value="60">1 minute</option>
                     <option value="180" selected>3 minutes</option>
                     <option value="300">5 minutes</option>
@@ -143,6 +147,9 @@
     </div>
 
     <script>
+        // Configuration - Vercel API endpoint
+        const API_ENDPOINT = 'https://video-script-writer-coral.vercel.app/api/script';
+        
         let format = 'tutorial';
         let tone = 'professional';
 
@@ -162,55 +169,58 @@
             });
         });
 
-        function generate() {
+        async function generate() {
             const topic = document.getElementById('topic').value;
             const description = document.getElementById('description').value;
             const duration = document.getElementById('duration').value;
             
             if (!topic) { alert('Please enter a video topic!'); return; }
 
-            const scripts = {
-                tutorial: {
-                    professional: {
-                        intro: `🎬 OPENING (5-10 seconds)\n\n"Hey everyone! In this tutorial, I'm going to show you exactly how to ${topic.toLowerCase()}.\n\nBy the end of this video, you'll have a complete understanding of this topic."`,
-                        body: `📝 MAIN CONTENT\n\nSTEP 1: Getting Started\nFirst, let's understand the basics. ${description || 'This is the foundation you need before moving forward.'}\n\nSTEP 2: The Process\nNow let me walk you through the actual steps. Make sure you follow along carefully.\n\nSTEP 3: Common Mistakes\nHere are some things to avoid that most people get wrong.`,
-                        outro: `🎬 CLOSING (10-15 seconds)\n\n"That's it for this tutorial! If you found this helpful, don't forget to like and subscribe for more content like this.\n\nLeave a comment below if you have any questions!"`
-                    },
-                    casual: {
-                        intro: `🎬 OPENING\n\n"Yo what's up everyone! So today we're talking about ${topic} - let's get into it!"`,
-                        body: `📝 MAIN\n\n"Alright so first things first - here's what you need to know..."\n\n"Next step is pretty straightforward..."\n\n"Don't make this mistake that I made!"`,
-                        outro: `🎬 CLOSING\n\n"That's it! Like if you enjoyed, subscribe for more!"`
-                    }
-                },
-                explainer: {
-                    professional: {
-                        intro: `🎬 OPENING\n\n"Let's talk about ${topic}. What is it? Why does it matter? And how can you use it?\n\nStick around, because by the end of this video, you'll be an expert."`,
-                        body: `📝 MAIN CONTENT\n\nTHE BASICS:\n${description || 'This concept is important because...'}\n\nHOW IT WORKS:\nHere's the breakdown...\n\nREAL-WORLD EXAMPLES:\nLet me show you some examples...`,
-                        outro: `🎬 CLOSING\n\n"So that's ${topic} in a nutshell! I hope this explanation made things clearer.\n\nIf you want more videos like this, hit subscribe!"`
-                    }
-                }
-            };
+            // Show loading
+            document.getElementById('scriptContent').innerHTML = '<p style="text-align:center;color:var(--text-muted)">Generating script...</p>';
+            document.getElementById('output').classList.add('show');
 
-            const selectedScript = scripts[format]?.[tone] || scripts.tutorial.professional;
-            const minutes = Math.floor(duration / 60);
+            try {
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        topic, 
+                        description,
+                        duration,
+                        format,
+                        tone
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    displayScript(data.result || 'No result generated');
+                } else {
+                    const errorData = await response.json();
+                    alert('Error: ' + (errorData.error || 'Failed to generate script'));
+                    document.getElementById('output').classList.remove('show');
+                }
+                
+            } catch (error) {
+                console.error('API Error:', error);
+                alert('Connection error. Please check your API configuration.');
+                document.getElementById('output').classList.remove('show');
+            }
+        }
+
+        function displayScript(text) {
+            const duration = document.getElementById('duration').value;
+            const durationText = duration < 60 ? `${duration} seconds` : `${Math.floor(duration / 60)} minutes`;
             
             let scriptHTML = `
                 <div class="script-part">
-                    <div class="part-label">Intro <span class="duration">(10s)</span></div>
-                    <div class="part-text">${selectedScript.intro}</div>
-                </div>
-                <div class="script-part">
-                    <div class="part-label">Main Content <span class="duration">(${minutes - 0.5}m)</span></div>
-                    <div class="part-text">${selectedScript.body}</div>
-                </div>
-                <div class="script-part">
-                    <div class="part-label">Outro <span class="duration">(15s)</span></div>
-                    <div class="part-text">${selectedScript.outro}</div>
+                    <div class="part-label">Script <span class="duration">(${durationText})</span></div>
+                    <div class="part-text">${text}</div>
                 </div>
             `;
 
             document.getElementById('scriptContent').innerHTML = scriptHTML;
-            document.getElementById('output').classList.add('show');
         }
 
         function copyScript() {
