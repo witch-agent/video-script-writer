@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes App Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #050505;
+            --bg-secondary: #0a0a0a;
+            --text: #f5f5f5;
+            --text-secondary: #a1a1a1;
+            --text-muted: #525252;
+            --accent: #ec4899;
+            --accent-glow: rgba(236, 72, 153, 0.15);
+            --border: #171717;
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+        
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        h1 { font-family: 'Space Grotesk', sans-serif; font-size: 1.75rem; }
+        h1 span { color: var(--accent); }
+        .add-btn { padding: 0.75rem 1.5rem; background: var(--accent); border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .add-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px var(--accent-glow); }
+
+        .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+        .note-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; cursor: pointer; transition: all 0.2s; }
+        .note-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+        .note-date { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+        .note-title { font-family: 'Space Grotesk', sans-serif; font-weight: 600; margin-bottom: 0.5rem; font-size: 1.1rem; }
+        .note-preview { font-size: 0.9rem; color: var(--text-secondary); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.6; }
+        
+        .empty { text-align: center; padding: 4rem 2rem; color: var(--text-muted); }
+        .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; padding: 2rem; overflow-y: auto; }
+        .modal.show { display: flex; justify-content: center; }
+        .modal-content { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; width: 100%; max-width: 600px; height: fit-content; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .modal-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; }
+        .close-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; }
+        .close-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .modal input, .modal textarea { width: 100%; padding: 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif; margin-bottom: 1rem; }
+        .modal textarea { min-height: 250px; resize: vertical; }
+        .modal input:focus, .modal textarea:focus { outline: none; border-color: var(--accent); }
+        .modal-buttons { display: flex; gap: 1rem; justify-content: flex-end; }
+        .modal-btn { padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .modal-btn.save { background: var(--accent); border: none; color: white; }
+        .modal-btn.delete { background: transparent; border: 1px solid #ef4444; color: #ef4444; }
+        .modal-btn.cancel { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+        
+        /* Note View */
+        .note-view { padding: 1rem; }
+        .note-view-date { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 1rem; }
+        .note-view-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem; }
+        .note-view-content { line-height: 1.8; color: var(--text-secondary); white-space: pre-wrap; }
+
+        footer { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 3rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>My <span>Notes</span></h1>
+            <button class="add-btn" onclick="openModal()">+ New Note</button>
+        </header>
+        <div class="notes-grid" id="notesGrid"></div>
+    </div>
+
+    <!-- Create/Edit Modal -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="modalTitle">New Note</span>
+                <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+            <input type="text" id="noteTitle" placeholder="Note title...">
+            <textarea id="noteContent" placeholder="Write your thoughts..."></textarea>
+            <div class="modal-buttons">
+                <button class="modal-btn delete" id="deleteBtn" onclick="deleteNote()" style="display:none;">Delete</button>
+                <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+                <button class="modal-btn save" onclick="saveNote()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Modal -->
+    <div class="modal" id="viewModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">View Note</span>
+                <button class="close-btn" onclick="closeView()">×</button>
+            </div>
+            <div class="note-view">
+                <div class="note-view-date" id="viewDate"></div>
+                <div class="note-view-title" id="viewTitle"></div>
+                <div class="note-view-content" id="viewContent"></div>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="closeView()">Close</button>
+                <button class="modal-btn save" onclick="editFromView()">Edit</button>
+            </div>
+        </div>
+    </div>
+
+    <footer><p>Built by witch-agent | Auto-saves to localStorage</p></footer>
+
+    <script>
+        let notes = JSON.parse(localStorage.getItem('notes')) || [];
+        let editingIndex = -1;
+        let viewingIndex = -1;
+
+        function render() {
+            const grid = document.getElementById('notesGrid');
+            if (notes.length === 0) {
+                grid.innerHTML = '<div class="empty"><div class="empty-icon">📝</div><p>No notes yet.<br>Create your first note!</p></div>';
+                return;
+            }
+            grid.innerHTML = notes.map((note, i) => `
+                <div class="note-card" onclick="viewNote(${i})">
+                    <div class="note-date">${note.date}</div>
+                    <div class="note-title">${note.title}</div>
+                    <div class="note-preview">${note.content}</div>
+                </div>
+            `).join('');
+        }
+
+        function openModal(index = -1) {
+            editingIndex = index;
+            document.getElementById('modalTitle').textContent = index === -1 ? 'New Note' : 'Edit Note';
+            document.getElementById('deleteBtn').style.display = index === -1 ? 'none' : 'block';
+            document.getElementById('noteTitle').value = index === -1 ? '' : notes[index].title;
+            document.getElementById('noteContent').value = index === -1 ? '' : notes[index].content;
+            document.getElementById('editModal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').classList.remove('show');
+            editingIndex = -1;
+        }
+
+        function saveNote() {
+            const title = document.getElementById('noteTitle').value.trim();
+            const content = document.getElementById('noteContent').value.trim();
+            if (!title) { alert('Title required!'); return; }
+            
+            if (editingIndex === -1) {
+                notes.unshift({ title, content, date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) });
+            } else {
+                notes[editingIndex] = { ...notes[editingIndex], title, content };
+            }
+            localStorage.setItem('notes', JSON.stringify(notes));
+            closeModal();
+            render();
+        }
+
+        function deleteNote() {
+            if (editingIndex > -1 && confirm('Delete this note?')) {
+                notes.splice(editingIndex, 1);
+                localStorage.setItem('notes', JSON.stringify(notes));
+                closeModal();
+                render();
+            }
+        }
+
+        function viewNote(index) {
+            viewingIndex = index;
+            document.getElementById('viewDate').textContent = notes[index].date;
+            document.getElementById('viewTitle').textContent = notes[index].title;
+            document.getElementById('viewContent').textContent = notes[index].content;
+            document.getElementById('viewModal').classList.add('show');
+        }
+
+        function closeView() {
+            document.getElementById('viewModal').classList.remove('show');
+            viewingIndex = -1;
+        }
+
+        function editFromView() {
+            closeView();
+            openModal(viewingIndex);
+        }
+
+        render();
+    </script>
+</body>
+</html>
